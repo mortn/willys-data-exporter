@@ -26,8 +26,9 @@ pyvenv.cfg
 *.pem
 *.key
 
-# Downloaded Willys responses contain personal data and account identifiers.
+# Downloaded Willys responses and receipts contain personal data and account identifiers.
 willys_data/
+willys_receipts/
 
 # Logs and local OS files
 *.log

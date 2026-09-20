@@ -1,22 +1,24 @@
-# Willys loyalty data fetcher
+# Willys data exporter
 
-This small Python script downloads monthly loyalty and bonus transaction data
+This small Python script exports monthly loyalty and bonus transaction data
 from Willys' account API. It walks backwards from the current month to January
-2022 and saves one response per month in `willys_data/`.
+2022 and saves one response per month in `willys_data/`. It can also download
+Willys' original itemized receipt PDFs into `willys_receipts/`.
 
 The scope of this project is data acquisition only. Analysis and processing can
 be performed by a separate application or pipeline.
 
 ## Privacy and security
 
-The API responses contain personal purchase information, including a name,
-loyalty-card number, store information, transaction amounts, order numbers, and
-receipt references. The downloaded JSON files are intentionally ignored by Git
-and should not be published or shared without removing personal data.
+The API responses and receipt PDFs contain personal purchase information,
+including a name, loyalty-card number, store information, transaction amounts,
+order numbers, receipt references, individual products, quantities, and prices.
+The downloaded JSON and PDF files are intentionally ignored by Git and should
+not be published or shared without removing personal data.
 
 The repository contains no credentials. Copy `.env.example` to `.env` and fill
 in the credentials locally. `.env` is ignored by Git and should never be
-committed or uploaded. The fetcher uses Willys' username/password login method;
+committed or uploaded. The exporter uses Willys' username/password login method;
 it does not use Mobilt BankID.
 
 ## Requirements
@@ -57,27 +59,44 @@ Keep the file local. Do not paste credentials into the source code or commit
 Verify the credentials without downloading any data:
 
 ```sh
-python willys_fetcher.py --check-login
+python willys_exporter.py --check-login
 ```
 
 Download missing monthly responses:
 
 ```sh
-python willys_fetcher.py
+python willys_exporter.py
 ```
 
-The script skips a month when its output file already exists, so it can be run
-again to fill in missing months. Output is written to `willys_data/` using names
-such as `willys_2025-11.json`.
+Download the monthly responses and the available itemized receipt PDFs:
 
-The script authenticates once, keeps the authenticated session cookies in
-memory, and uses that session for the API requests. It follows the endpoint's
-pagination metadata and combines all pages for a month into the saved JSON
-file.
+```sh
+python willys_exporter.py --download-receipts
+```
+
+The JSON responses are written to `willys_data/` using names such as
+`willys_2025-11.json`. Receipt PDFs are written to
+`willys_receipts/2025-11/`. The receipt files are the original documents from
+Willys; this project does not parse or transform them. A separate processing
+pipeline can extract product lines, quantities, prices, VAT, and totals.
+
+The script skips a month when its JSON file already exists and valid receipt
+files when `--download-receipts` is used, so it can be run again to fill in
+missing data. It authenticates once, keeps the authenticated session cookies in
+memory, and uses that session for the API and receipt requests. It follows the
+endpoint's pagination metadata and combines all pages for a month into the
+saved JSON file. Safe API GET requests are retried for transient server and
+rate-limit responses.
+
+Run the offline test suite with:
+
+```sh
+python -m unittest discover -s tests -v
+```
 
 ## Configuration
 
-The earliest month is controlled by `end_date` in `willys_fetcher.py` and is
+The earliest month is controlled by `END_DATE` in `willys_exporter.py` and is
 currently `2022-01-01`. Request timeouts and page size are defined near the top
 of the file.
 
