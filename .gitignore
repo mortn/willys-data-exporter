@@ -1,0 +1,35 @@
+# Python bytecode and tooling
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+bin/
+include/
+lib/
+lib64
+pyvenv.cfg
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Downloaded Willys responses contain personal data and account identifiers.
+willys_data/
+
+# Logs and local OS files
+*.log
+.DS_Store
+Thumbs.db
