@@ -1,7 +1,8 @@
 # Willys data exporter
 
 This small Python script exports monthly loyalty and bonus transaction data
-from Willys' account API. It walks backwards from the current month to January
+from [Willys](https://www.willys.se/)' account API. It walks backwards from
+the current month to January
 2022 and saves one response per month in `willys_data/`. It can also download
 Willys' original itemized receipt PDFs into `willys_receipts/`.
 
