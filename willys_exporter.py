@@ -29,8 +29,47 @@ END_DATE = date(2022, 1, 1)
 PAGE_SIZE = 50
 REQUEST_TIMEOUT = 30
 RECEIPT_TIMEZONE = ZoneInfo('Europe/Stockholm')
+DEFAULT_PROFILE = 'default'
+PROFILE_PATTERN = re.compile(r'^[a-z0-9][a-z0-9_-]*$')
 
 load_dotenv(PROJECT_DIR / '.env')
+
+
+def _normalize_profile(profile: str) -> str:
+    profile = profile.strip().lower()
+    if not PROFILE_PATTERN.fullmatch(profile):
+        raise ValueError(
+            'Profile must contain only lowercase letters, numbers, hyphens, '
+            'and underscores, and must not start with a separator.'
+        )
+    return profile
+
+
+def _profile_credentials(profile: str) -> tuple[str, str]:
+    profile = _normalize_profile(profile)
+    if profile == DEFAULT_PROFILE:
+        username_name = 'WILLYS_USERNAME'
+        password_name = 'WILLYS_PASSWORD'
+    else:
+        env_profile = profile.upper().replace('-', '_')
+        prefix = f'WILLYS_{env_profile}_'
+        username_name = f'{prefix}USERNAME'
+        password_name = f'{prefix}PASSWORD'
+
+    username = os.environ.get(username_name, '').strip()
+    password = os.environ.get(password_name, '')
+    if not username or not password:
+        raise RuntimeError(
+            f'Set {username_name} and {password_name} in the local .env file.'
+        )
+    return username, password
+
+
+def _profile_directories(profile: str) -> tuple[Path, Path]:
+    profile = _normalize_profile(profile)
+    if profile == DEFAULT_PROFILE:
+        return DATA_DIR, RECEIPTS_DIR
+    return DATA_DIR / profile, RECEIPTS_DIR / profile
 
 
 def _encrypt_login_value(value: str) -> tuple[str, str]:
@@ -92,14 +131,9 @@ def _build_session() -> requests.Session:
     return session
 
 
-def login() -> requests.Session:
-    """Authenticate with Willys using the password login method."""
-    username = os.environ.get('WILLYS_USERNAME', '').strip()
-    password = os.environ.get('WILLYS_PASSWORD', '')
-    if not username or not password:
-        raise RuntimeError(
-            'Set WILLYS_USERNAME and WILLYS_PASSWORD in the local .env file.'
-        )
+def login(profile: str = DEFAULT_PROFILE) -> requests.Session:
+    """Authenticate one named Willys profile using the password login method."""
+    username, password = _profile_credentials(profile)
 
     encrypted_username, username_key = _encrypt_login_value(username)
     encrypted_password, password_key = _encrypt_login_value(password)
@@ -379,12 +413,22 @@ def main() -> int:
         action='store_true',
         help='also download available itemized receipt PDFs',
     )
+    parser.add_argument(
+        '--profile',
+        default=DEFAULT_PROFILE,
+        help=(
+            'credential and output profile (default: default); named profiles '
+            'use WILLYS_<PROFILE>_USERNAME and WILLYS_<PROFILE>_PASSWORD'
+        ),
+    )
     args = parser.parse_args()
 
     try:
-        session = login()
-    except (requests.RequestException, RuntimeError) as exc:
-        print(f'Login failed: {exc}', file=sys.stderr)
+        profile = _normalize_profile(args.profile)
+        data_dir, receipts_dir = _profile_directories(profile)
+        session = login(profile)
+    except (requests.RequestException, RuntimeError, ValueError) as exc:
+        print(f'Setup failed: {exc}', file=sys.stderr)
         return 1
 
     if args.check_login:
@@ -392,23 +436,24 @@ def main() -> int:
         return 0
 
     try:
-        DATA_DIR.mkdir(exist_ok=True)
+        data_dir.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        print(f'Unable to create data directory {DATA_DIR}: {exc}', file=sys.stderr)
+        print(f'Unable to create data directory {data_dir}: {exc}', file=sys.stderr)
         return 1
 
+    print(f'Profile: {profile}')
     print(
         f'Starting data fetch from {date.today():%Y-%m} '
         f'to {END_DATE:%Y-%m}...'
     )
-    print(f'Data will be stored in: {DATA_DIR}')
+    print(f'Data will be stored in: {data_dir}')
     if args.download_receipts:
-        print(f'Receipts will be stored in: {RECEIPTS_DIR}')
+        print(f'Receipts will be stored in: {receipts_dir}')
 
     failures = []
     for current_date, first_day, last_day in month_ranges(END_DATE):
         filename = f'willys_{current_date:%Y-%m}.json'
-        filepath = DATA_DIR / filename
+        filepath = data_dir / filename
         data = None
         if filepath.exists():
             try:
@@ -438,6 +483,7 @@ def main() -> int:
                     session,
                     data['loyaltyTransactionsInPage'],
                     current_date.strftime('%Y-%m'),
+                    receipts_dir,
                 )
                 if downloaded or skipped:
                     print(

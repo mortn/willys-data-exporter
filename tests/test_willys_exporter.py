@@ -113,6 +113,28 @@ class WillysExporterTests(unittest.TestCase):
                         session, date(2025, 11, 1), date(2025, 11, 30)
                     )
 
+    def test_named_profile_uses_profile_credentials_and_directories(self):
+        with patch.dict(
+            os.environ,
+            {
+                'WILLYS_USER2_USERNAME': 'user2-username',
+                'WILLYS_USER2_PASSWORD': 'user2-password',
+            },
+            clear=True,
+        ):
+            self.assertEqual(
+                willys_exporter._profile_credentials('user2'),
+                ('user2-username', 'user2-password'),
+            )
+
+        data_dir, receipts_dir = willys_exporter._profile_directories('user2')
+        self.assertEqual(data_dir.name, 'user2')
+        self.assertEqual(receipts_dir.name, 'user2')
+
+    def test_invalid_profile_is_rejected(self):
+        with self.assertRaises(ValueError):
+            willys_exporter._normalize_profile('../user2')
+
     def test_login_rejects_non_object_response(self):
         fake_session = FakeLoginSession([])
         with patch.dict(

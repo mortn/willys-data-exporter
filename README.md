@@ -55,6 +55,39 @@ WILLYS_PASSWORD=your-password
 Keep the file local. Do not paste credentials into the source code or commit
 `.env`.
 
+## Multiple accounts
+
+The exporter supports separate named profiles. Each profile gets its own login
+session and output directories. For example, add these variables to `.env`:
+
+```dotenv
+WILLYS_USER1_USERNAME=your-username
+WILLYS_USER1_PASSWORD=your-password
+WILLYS_USER2_USERNAME=your-username
+WILLYS_USER2_PASSWORD=your-password
+```
+
+Use the profiles separately:
+
+```sh
+python willys_exporter.py --profile user1 --download-receipts
+python willys_exporter.py --profile user2 --download-receipts
+```
+
+The output is isolated as follows:
+
+```text
+willys_data/user1/
+willys_data/user2/
+willys_receipts/user1/
+willys_receipts/user2/
+```
+
+Profile names are aliases, not account names. They must contain only letters,
+numbers, hyphens, and underscores. The original unprefixed
+`WILLYS_USERNAME`/`WILLYS_PASSWORD` variables remain available as the default
+profile and use the original root output directories.
+
 ## Usage
 
 Verify the credentials without downloading any data:
@@ -69,7 +102,8 @@ Download missing monthly responses:
 python willys_exporter.py
 ```
 
-Download the monthly responses and the available itemized receipt PDFs:
+Download the monthly responses and the available itemized receipt PDFs for
+the default profile:
 
 ```sh
 python willys_exporter.py --download-receipts
